@@ -1,0 +1,60 @@
+#!/bin/sh
+USAGE="Usage: $0 [-v] [-n LIMIT] [-d DECREASE] FILE COMMAND..."
+
+# parse options
+limit=10
+decrease=inf
+verbose=
+while getopts vn:d: OPT ; do
+    case $OPT in
+        n ) if [ "$OPTARG" -ne "$OPTARG" ] ; then echo "$USAGE" ; exit 1 ; fi ; limit="$OPTARG" ;;
+        d ) if [ "$OPTARG" -ne "$OPTARG" ] ; then echo "$USAGE" ; exit 1 ; fi ; decrease="$OPTARG" ;;
+        v ) verbose=t ;;
+        h | \? ) echo "$USAGE" ; exit 0 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# parse args
+if [ $# -lt 2 ] ; then
+    echo "$USAGE"
+    exit 1
+fi
+file="$1"
+shift
+
+getsize() {
+    if [ ! -e "$file" ] ; then
+        echo 0
+    else
+        size="$(cat "$file")"
+        if [ "$size" -eq "$size" ] 2> /dev/null ; then
+            echo "$size"
+        else
+            echo 0
+        fi
+    fi
+}
+
+# check the file
+size=$(getsize)
+if [ "$size" -ge "$limit" ] ; then
+    [ -n "$verbose" ] && echo "$0: the execution is skipped: $*" >&2
+    exit 1
+fi
+
+# spawn the command
+if "$@" ; then
+    size=$(getsize)
+    if [ "$decrease" = inf ] || [ "$size" -le "$decrease" ] ; then
+        echo 0 > "$file"
+    else
+        echo $((size - decrease)) > "$file"
+    fi
+    exit 0
+else
+    returncode=$?
+    size=$(getsize)
+    echo $((size + 1)) > "$file"
+    exit $returncode
+fi
